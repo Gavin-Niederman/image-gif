@@ -1,11 +1,14 @@
-use std::borrow::Cow;
-use std::cmp;
-use std::error;
-use std::fmt;
-use std::io;
-use std::mem;
-use std::default::Default;
-use std::num::NonZeroUsize;
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cmp;
+use no_std_io::error;
+use core::fmt;
+use no_std_io::io;
+use core::mem;
+use core::default::Default;
+use core::num::NonZeroUsize;
 
 use crate::Repeat;
 use crate::MemoryLimit;
@@ -317,12 +320,12 @@ impl LzwReader {
     }
 
     pub fn decode_bytes(&mut self, lzw_data: &[u8], decode_buffer: &mut OutputBuffer<'_>) -> io::Result<(usize, usize)> {
-        let decoder = self.decoder.as_mut().ok_or(io::ErrorKind::Unsupported)?;
+        let decoder = self.decoder.as_mut().ok_or(io::ErrorKind::Other)?;
 
         let decode_buffer = match decode_buffer {
             OutputBuffer::Slice(buf) => &mut **buf,
             OutputBuffer::None => &mut [],
-            OutputBuffer::Vec(_) => return Err(io::Error::from(io::ErrorKind::Unsupported)),
+            OutputBuffer::Vec(_) => return Err(io::Error::from(io::ErrorKind::Other)),
         };
 
         let decoded = decoder.decode_bytes(lzw_data, decode_buffer);
@@ -335,7 +338,7 @@ impl LzwReader {
                 }
             },
             Err(err @ LzwError::InvalidCode) => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, err));
+                return Err(io::Error::new(io::ErrorKind::InvalidData,"invalid"));
             }
         }
         Ok((decoded.consumed_in, decoded.consumed_out))
@@ -401,7 +404,7 @@ impl OutputBuffer<'_> {
                 let vec: &mut Vec<u8> = vec;
                 let len = buf.len();
                 memory_limit.check_size(vec.len() + len)?;
-                vec.try_reserve(len).map_err(|_| io::ErrorKind::OutOfMemory)?;
+                vec.try_reserve(len).map_err(|_| io::ErrorKind::Other)?;
                 if vec.capacity() - vec.len() >= len {
                     vec.extend_from_slice(buf);
                 }
@@ -568,7 +571,7 @@ impl StreamingDecoder {
                         let global_table = global_flags & 0x80 != 0;
                         let table_size = if global_table {
                             let table_size = PLTE_CHANNELS * (1 << ((global_flags & 0b111) + 1) as usize);
-                            self.global_color_table.try_reserve_exact(table_size).map_err(|_| io::ErrorKind::OutOfMemory)?;
+                            self.global_color_table.try_reserve_exact(table_size).map_err(|_| io::ErrorKind::Other)?;
                             table_size
                         } else {
                             0usize
@@ -622,7 +625,7 @@ impl StreamingDecoder {
                         if local_table {
                             let pal_len = PLTE_CHANNELS * (1 << (table_size + 1));
                             frame.palette.get_or_insert_with(Vec::new)
-                                .try_reserve_exact(pal_len).map_err(|_| io::ErrorKind::OutOfMemory)?;
+                                .try_reserve_exact(pal_len).map_err(|_| io::ErrorKind::Other)?;
                             goto!(LocalPalette(pal_len))
                         } else {
                             goto!(LocalPalette(0))
@@ -702,7 +705,7 @@ impl StreamingDecoder {
                 if left > 0 {
                     let n = cmp::min(left, buf.len());
                     self.memory_limit.check_size(self.ext.data.len() + n)?;
-                    self.ext.data.try_reserve(n).map_err(|_| io::Error::from(io::ErrorKind::OutOfMemory))?;
+                    self.ext.data.try_reserve(n).map_err(|_| io::Error::from(io::ErrorKind::Other))?;
                     self.ext.data.extend_from_slice(&buf[..n]);
                     goto!(n, ExtensionDataBlock(left - n))
                 } else if b == 0 {

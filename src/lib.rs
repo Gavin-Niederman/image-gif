@@ -109,13 +109,15 @@
 // }
 // # })().unwrap();
 // ```
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
-#![cfg(feature = "std")]
 
 mod traits;
 mod common;
 mod reader;
 mod encoder;
+
+extern crate alloc;
 
 pub use crate::common::{AnyExtension, Extension, DisposalMethod, Frame};
 

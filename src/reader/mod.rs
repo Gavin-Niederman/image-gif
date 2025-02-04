@@ -1,11 +1,17 @@
-use std::borrow::Cow;
-use std::io;
-use std::iter::FusedIterator;
-use std::mem;
+use alloc::borrow::Cow;
+use alloc::vec::Vec;
+use no_std_io::io;
+use core::iter::FusedIterator;
+use core::mem;
 
-use std::io::prelude::*;
-use std::num::NonZeroU64;
-use std::convert::{TryFrom, TryInto};
+use no_std_io::io::{
+    Read,
+    BufRead,
+    Seek,
+    Write
+};
+use core::num::NonZeroU64;
+use core::convert::{TryFrom, TryInto};
 
 use crate::Repeat;
 use crate::common::{Block, Frame};
@@ -195,7 +201,7 @@ impl DecodeOptions {
 }
 
 struct ReadDecoder<R: Read> {
-    reader: io::BufReader<R>,
+    reader: io::BufReader<R, 8000>,
     decoder: StreamingDecoder,
     at_eof: bool,
 }
@@ -224,7 +230,7 @@ impl<R: Read> ReadDecoder<R> {
         Ok(None)
     }
 
-    fn into_inner(self) -> io::BufReader<R> {
+    fn into_inner(self) -> io::BufReader<R, 8000> {
         self.reader
     }
 
@@ -351,7 +357,7 @@ impl<R> Decoder<R> where R: Read {
                     };
                     // Guesstimate 2bpp
                     vec.try_reserve(usize::from(self.current_frame.width) * usize::from(self.current_frame.height) / 4)
-                        .map_err(|_| io::Error::from(io::ErrorKind::OutOfMemory))?;
+                        .map_err(|_| io::Error::from(io::ErrorKind::Other))?;
                     self.copy_lzw_into_buffer(min_code_size, &mut vec)?;
                     self.current_frame.buffer = Cow::Owned(vec);
                 },
@@ -441,7 +447,7 @@ impl<R> Decoder<R> where R: Read {
     }
 
     /// Abort decoding and recover the `io::Read` instance
-    pub fn into_inner(self) -> io::BufReader<R> {
+    pub fn into_inner(self) -> io::BufReader<R, 8000> {
         self.decoder.into_inner()
     }
 
@@ -483,7 +489,7 @@ impl<R: Read> DecoderIter<R> {
     /// Abort decoding and recover the `io::Read` instance
     ///
     /// Use `for frame in iter.by_ref()` to be able to call this afterwards.
-    pub fn into_inner(self) -> io::BufReader<R> {
+    pub fn into_inner(self) -> io::BufReader<R, 8000> {
         self.inner.into_inner()
     }
 }

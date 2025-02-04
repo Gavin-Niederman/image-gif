@@ -1,7 +1,9 @@
-use std::borrow::Cow;
-use std::io;
-use std::mem;
-use std::iter;
+use alloc::borrow::Cow;
+use alloc::vec;
+use alloc::vec::Vec;
+use no_std_io::io;
+use core::mem;
+use core::iter;
 use crate::common::Frame;
 use crate::MemoryLimit;
 
@@ -46,7 +48,7 @@ impl PixelConverter {
     pub(crate) fn check_buffer_size(&mut self, frame: &Frame<'_>) -> Result<usize, DecodingError> {
         let pixel_bytes = self.memory_limit
             .buffer_size(self.color_output, frame.width, frame.height)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::OutOfMemory, "image is too large"))?;
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "image is too large"))?;
 
         debug_assert_eq!(
             pixel_bytes, self.buffer_size(frame).unwrap(),

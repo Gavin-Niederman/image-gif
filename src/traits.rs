@@ -1,5 +1,8 @@
 //! Traits used in this library
+#[cfg(feature = "std")]
 use std::io;
+#[cfg(not(feature = "std"))]
+use no_std_io::io;
 
 /// Writer extension to write little endian data
 pub trait WriteBytesExt<T> {

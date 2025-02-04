@@ -1,9 +1,28 @@
 //! # Minimal gif encoder
-use std::io;
-use std::io::prelude::*;
-use std::fmt;
-use std::error;
-use std::borrow::Cow;
+#[cfg(feature = "std")]
+use std::{
+    io,
+    io::prelude::*,
+    fmt,
+    error,
+};
+use no_std_io::error;
+#[cfg(not(feature = "std"))]
+use no_std_io::io as io;
+#[cfg(not(feature = "std"))]
+use no_std_io::io::{
+    BufRead,
+    Read,
+    Seek,
+    Write
+};
+#[cfg(not(feature = "std"))]
+use core::{
+    fmt,
+};
+use alloc::borrow::Cow;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 use weezl::{BitOrder, encode::Encoder as LzwEncoder};
 
@@ -214,10 +233,10 @@ impl<W: Write> Encoder<W> {
     fn write_image_block(&mut self, data: &[u8]) -> Result<(), EncodingError> {
         self.buffer.clear();
         self.buffer.try_reserve(data.len() / 4)
-            .map_err(|_| io::Error::from(io::ErrorKind::OutOfMemory))?;
+            .map_err(|_| io::Error::from(io::ErrorKind::Other))?;
         lzw_encode(data, &mut self.buffer);
 
-        let writer = self.w.as_mut().ok_or(io::Error::from(io::ErrorKind::Unsupported))?;
+        let writer = self.w.as_mut().ok_or(io::Error::from(io::ErrorKind::Other))?;
         Self::write_encoded_image_block(writer, &self.buffer)
     }
 
@@ -361,7 +380,7 @@ impl<W: Write> Encoder<W> {
     /// Finishes writing, and returns the `io::Write` instance used by this encoder
     pub fn into_inner(mut self) -> io::Result<W> {
         self.write_trailer()?;
-        self.w.take().ok_or(io::Error::from(io::ErrorKind::Unsupported))
+        self.w.take().ok_or(io::Error::from(io::ErrorKind::Other))
     }
 
     /// Write the final tailer.
@@ -371,7 +390,7 @@ impl<W: Write> Encoder<W> {
 
     #[inline]
     fn writer(&mut self) -> io::Result<&mut W> {
-        self.w.as_mut().ok_or(io::Error::from(io::ErrorKind::Unsupported))
+        self.w.as_mut().ok_or(io::Error::from(io::ErrorKind::Other))
     }
 }
 
